@@ -8427,7 +8427,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "solochain-template-node"
+name = "solochain-eterra-node"
 version = "0.1.0"
 dependencies = [
  "clap",

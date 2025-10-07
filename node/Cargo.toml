@@ -1,6 +1,6 @@
 [package]
-name = "solochain-template-node"
-description = "A solochain node template built with Substrate, part of Polkadot Sdk."
+name = "solochain-eterra-node"
+description = "A solochain node for the eterra gaming ecosystem built with Substrate"
 version = "0.1.0"
 license = "Unlicense"
 authors.workspace = true

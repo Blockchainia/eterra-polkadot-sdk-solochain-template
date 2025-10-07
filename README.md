@@ -1,232 +1,209 @@
-# EterraNode
- EterraNode is an in development fork of the Substrate Node Template that supports development of EterraPocket, a quickly evolving companion app to out larger suite of planned Eterra games. Current development focuses on a strategic turn based card game with plans to expand features for a comprehensive collectible trading card game: EterraPocket. EterraPocket will be a companion app card game that will seamlessly integrate its features and assets with future planned role playing and first-person arena games. 
+# Eterra Node (`solochain-eterra-node`)
 
-# Substrate Node Template
+**Eterra Node** is the blockchain core for the Eterra ecosystem — a custom Substrate-based network designed for persistent test and production environments. It currently powers **EterraPocket**, the companion collectible card game, and future role-playing and arena games under the Eterra IP.
 
-A fresh [Substrate](https://substrate.io/) node, ready for hacking :rocket:
+This node is based on the Substrate Solochain Template, customized to include our Eterra-specific pallets (such as `eterraFaucet` and future `eterraRewards`) and runtime configurations for the **Eterra Testnet** — a `ChainType::Live` network with defined authorities and a treasury account.
 
-A standalone version of this template is available for each release of Polkadot
-in the [Substrate Developer Hub Parachain
-Template](https://github.com/substrate-developer-hub/substrate-node-template/)
-repository. The parachain template is generated directly at each Polkadot
-release branch from the [Solochain Template in
-Substrate](https://github.com/paritytech/polkadot-sdk/tree/master/templates/solochain)
-upstream
+---
 
-It is usually best to use the stand-alone version to start a new project. All
-bugs, suggestions, and feature requests should be made upstream in the
-[Substrate](https://github.com/paritytech/polkadot-sdk/tree/master/substrate)
-repository.
+## 🧱 Getting Started
 
-## Getting Started
+### 1. Build the Node
 
-Depending on your operating system and Rust version, there might be additional
-packages required to compile this template. Check the
-[Install](https://docs.substrate.io/install/) instructions for your platform for
-the most common dependencies. Alternatively, you can use one of the [alternative
-installation](#alternatives-installations) options.
+Build the node binary in release mode:
 
-### Build
-
-Use the following command to build the node without launching it:
-
-```sh
-cargo build --release
+```bash
+cargo build -p solochain-eterra-node --release
 ```
 
-### Embedded Docs
+After the build completes, your binary will be available at:
 
-After you build the project, you can use the following command to explore its
-parameters and subcommands:
-
-```sh
-./target/release/solochain-template-node -h
+```
+./target/release/solochain-eterra-node
 ```
 
-You can generate and view the [Rust
-Docs](https://doc.rust-lang.org/cargo/commands/cargo-doc.html) for this template
-with this command:
+---
 
-```sh
-cargo +nightly doc --open
+## 🌐 Starting the Eterra Testnet Node
+
+### Start a Persistent Validator (Alice)
+
+```bash
+BASE=/var/lib/eterra-testnet/alice
+
+./target/release/solochain-eterra-node \
+  --chain chain-specs/testnet-raw.json \
+  --base-path "$BASE" \
+  --validator --alice \
+  --force-authoring \
+  --port 30333 --rpc-port 9944 \
+  --public-addr /ip4/127.0.0.1/tcp/30333 \
+  --unsafe-rpc-external --rpc-cors all
 ```
 
-### Single-Node Development Chain
+This starts a persistent node with:
+- Database path: `/var/lib/eterra-testnet/alice`
+- Chain spec: `Eterra Testnet`
+- Role: Authority validator (Alice)
+- RPC endpoint: `ws://127.0.0.1:9944`
 
-The following command starts a single-node development chain that doesn't
-persist state:
-
-```sh
-./target/release/solochain-template-node --dev
+You should see:
+```
+👤 Role: AUTHORITY
+🔨 Starting block production on slot ...
 ```
 
-The following command starts a single-node chain that persists state:
-```sh
-./target/release/solochain-template-node --chain local
+If not, check that:
+- The AURA and GRANDPA keys are inserted (`key insert` commands).
+- The chain spec has correct authorities.
+- You used `--force-authoring` to allow solo block production.
+
+---
+
+## 🔑 Inserting Keys
+
+If your base path is new, insert validator keys before running:
+
+```bash
+BASE=/var/lib/eterra-testnet/alice
+
+# AURA
+./target/release/solochain-eterra-node key insert \
+  --base-path "$BASE" \
+  --chain chain-specs/testnet-raw.json \
+  --key-type aura \
+  --scheme Sr25519 \
+  --suri //Alice
+
+# GRANDPA
+./target/release/solochain-eterra-node key insert \
+  --base-path "$BASE" \
+  --chain chain-specs/testnet-raw.json \
+  --key-type gran \
+  --scheme Ed25519 \
+  --suri //Alice
 ```
 
-To purge the development chain's state, run the following command:
+---
 
-```sh
-./target/release/solochain-template-node purge-chain --dev
+## 🧹 Purging Chain State
+
+To remove all local data and start fresh:
+
+```bash
+BASE=/var/lib/eterra-testnet/alice
+
+./target/release/solochain-eterra-node purge-chain \
+  --chain chain-specs/testnet-raw.json \
+  --base-path "$BASE" -y
 ```
 
-To start the development chain with detailed logging, run the following command:
+---
 
-```sh
-RUST_BACKTRACE=1 ./target/release/solochain-template-node -ldebug --dev
+## 💾 Backing Up Chain State
+
+To back up your local node’s database and keystore safely:
+
+```bash
+BASE=/var/lib/eterra-testnet/alice
+BACKUP=~/eterra-backups/alice-$(date +%Y%m%d%H%M).tar.gz
+
+tar -czf "$BACKUP" -C "$BASE" chains keystore
+echo "Backup saved to $BACKUP"
 ```
 
-Development chains:
+To restore from a backup:
 
-- Maintain state in a `tmp` folder while the node is running.
-- Use the **Alice** and **Bob** accounts as default validator authorities.
-- Use the **Alice** account as the default `sudo` account.
-- Are preconfigured with a genesis state (`/node/src/chain_spec.rs`) that
-  includes several pre-funded development accounts.
+```bash
+BASE=/var/lib/eterra-testnet/alice
+BACKUP=/path/to/alice-backup.tar.gz
 
-
-To persist chain state between runs, specify a base path by running a command
-similar to the following:
-
-```sh
-// Create a folder to use as the db base path
-$ mkdir my-chain-state
-
-// Use of that folder to store the chain state
-$ ./target/release/solochain-template-node --dev --base-path ./my-chain-state/
-
-// Check the folder structure created inside the base path after running the chain
-$ ls ./my-chain-state
-chains
-$ ls ./my-chain-state/chains/
-dev
-$ ls ./my-chain-state/chains/dev
-db keystore network
+tar -xzf "$BACKUP" -C "$BASE"
 ```
 
-### Connect with Polkadot-JS Apps Front-End
+Restoring from a backup will replace the current chain database and keystore with the archived versions.  
+This is useful when migrating to a new machine, recovering from accidental data loss, or rolling back to a previous known good state.  
+Always ensure the node is stopped before restoring, and verify permissions on `/var/lib/eterra-testnet` afterward to avoid startup errors.
 
-After you start the node template locally, you can interact with it using the
-hosted version of the [Polkadot/Substrate
-Portal](https://polkadot.js.org/apps/#/explorer?rpc=ws://localhost:9944)
-front-end by connecting to the local node endpoint. A hosted version is also
-available on [IPFS](https://dotapps.io/). You can
-also find the source code and instructions for hosting your own instance in the
-[`polkadot-js/apps`](https://github.com/polkadot-js/apps) repository.
+---
 
-### Multi-Node Local Testnet
+## 🔍 Useful Commands
 
-If you want to see the multi-node consensus algorithm in action, see [Simulate a
-network](https://docs.substrate.io/tutorials/build-a-blockchain/simulate-network/).
+### Build a Human-Readable Chain Spec
+```bash
+./target/release/solochain-eterra-node build-spec \
+  --chain local --disable-default-bootnode > chain-specs/testnet.json
+```
 
-## Template Structure
+### Convert to a Raw Chain Spec (for validators)
+```bash
+./target/release/solochain-eterra-node build-spec \
+  --chain chain-specs/testnet.json \
+  --raw --disable-default-bootnode > chain-specs/testnet-raw.json
+```
 
-A Substrate project such as this consists of a number of components that are
-spread across a few directories.
+### Verify Bootnodes (should be empty for Eterra Testnet)
+```bash
+jq '.bootNodes' chain-specs/testnet-raw.json
+```
 
-### Node
+---
 
-A blockchain node is an application that allows users to participate in a
-blockchain network. Substrate-based blockchain nodes expose a number of
-capabilities:
+## 🧠 Notes
 
-- Networking: Substrate nodes use the [`libp2p`](https://libp2p.io/) networking
-  stack to allow the nodes in the network to communicate with one another.
-- Consensus: Blockchains must have a way to come to
-  [consensus](https://docs.substrate.io/fundamentals/consensus/) on the state of
-  the network. Substrate makes it possible to supply custom consensus engines
-  and also ships with several consensus mechanisms that have been built on top
-  of [Web3 Foundation
-  research](https://research.web3.foundation/Polkadot/protocols/NPoS).
-- RPC Server: A remote procedure call (RPC) server is used to interact with
-  Substrate nodes.
+- The Eterra Testnet is configured as a `ChainType::Live` network with **no default bootnodes** injected.
+- Only whitelisted nodes are allowed to connect (via `pallet-node-authorization`).
+- The treasury account is derived from the pallet ID `py/trsry`.
+- The faucet pallet (`eterraFaucet`) is active for test networks, distributing small test token amounts.
 
-There are several files in the `node` directory. Take special note of the
-following:
+---
 
-- [`chain_spec.rs`](./node/src/chain_spec.rs): A [chain
-  specification](https://docs.substrate.io/build/chain-spec/) is a source code
-  file that defines a Substrate chain's initial (genesis) state. Chain
-  specifications are useful for development and testing, and critical when
-  architecting the launch of a production chain. Take note of the
-  `development_config` and `testnet_genesis` functions. These functions are
-  used to define the genesis state for the local development chain
-  configuration. These functions identify some [well-known
-  accounts](https://docs.substrate.io/reference/command-line-tools/subkey/) and
-  use them to configure the blockchain's initial state.
-- [`service.rs`](./node/src/service.rs): This file defines the node
-  implementation. Take note of the libraries that this file imports and the
-  names of the functions it invokes. In particular, there are references to
-  consensus-related topics, such as the [block finalization and
-  forks](https://docs.substrate.io/fundamentals/consensus/#finalization-and-forks)
-  and other [consensus
-  mechanisms](https://docs.substrate.io/fundamentals/consensus/#default-consensus-models)
-  such as Aura for block authoring and GRANDPA for finality.
+## 🧩 Project Structure
 
+- **`node/`** — Core node logic: consensus setup, RPC, and service management.
+- **`runtime/`** — The Eterra runtime configuration, including all pallets.
+- **`pallets/`** — Custom Eterra pallets (e.g., Faucet, Rewards, etc.).
+- **`chain-specs/`** — Stored chain spec JSON files for dev and testnet environments.
 
-### Runtime
+---
 
-In Substrate, the terms "runtime" and "state transition function" are analogous.
-Both terms refer to the core logic of the blockchain that is responsible for
-validating blocks and executing the state changes they define. The Substrate
-project in this repository uses
-[FRAME](https://docs.substrate.io/learn/runtime-development/#frame) to construct
-a blockchain runtime. FRAME allows runtime developers to declare domain-specific
-logic in modules called "pallets". At the heart of FRAME is a helpful [macro
-language](https://docs.substrate.io/reference/frame-macros/) that makes it easy
-to create pallets and flexibly compose them to create blockchains that can
-address [a variety of needs](https://substrate.io/ecosystem/projects/).
+## ⚙️ Example: Recreate Testnet Genesis
 
-Review the [FRAME runtime implementation](./runtime/src/lib.rs) included in this
-template and note the following:
+```bash
+./target/release/solochain-eterra-node build-spec \
+  --chain local --disable-default-bootnode > chain-specs/testnet.json
 
-- This file configures several pallets to include in the runtime. Each pallet
-  configuration is defined by a code block that begins with `impl
-  $PALLET_NAME::Config for Runtime`.
-- The pallets are composed into a single runtime by way of the
-  [`construct_runtime!`](https://paritytech.github.io/substrate/master/frame_support/macro.construct_runtime.html)
-  macro, which is part of the [core FRAME pallet
-  library](https://docs.substrate.io/reference/frame-pallets/#system-pallets).
+# Manually adjust authorities, balances, faucet, and treasury as needed.
+# Then:
+./target/release/solochain-eterra-node build-spec \
+  --chain chain-specs/testnet.json --raw > chain-specs/testnet-raw.json
+```
 
-### Pallets
+---
 
-The runtime in this project is constructed using many FRAME pallets that ship
-with [the Substrate
-repository](https://github.com/paritytech/polkadot-sdk/tree/master/substrate/frame) and a
-template pallet that is [defined in the
-`pallets`](./pallets/template/src/lib.rs) directory.
+## 🔗 Connect with Polkadot-JS Apps
 
-A FRAME pallet is comprised of a number of blockchain primitives, including:
+Once your node is running, open the [Polkadot/Substrate Apps Portal](https://polkadot.js.org/apps/#/explorer?rpc=ws://127.0.0.1:9944) and connect to:
 
-- Storage: FRAME defines a rich set of powerful [storage
-  abstractions](https://docs.substrate.io/build/runtime-storage/) that makes it
-  easy to use Substrate's efficient key-value database to manage the evolving
-  state of a blockchain.
-- Dispatchables: FRAME pallets define special types of functions that can be
-  invoked (dispatched) from outside of the runtime in order to update its state.
-- Events: Substrate uses
-  [events](https://docs.substrate.io/build/events-and-errors/) to notify users
-  of significant state changes.
-- Errors: When a dispatchable fails, it returns an error.
+```
+ws://127.0.0.1:9944
+```
 
-Each pallet has its own `Config` trait which serves as a configuration interface
-to generically define the types and parameters it depends on.
+You should see **Eterra Testnet** in the upper left corner.
 
-## Alternatives Installations
+---
 
-Instead of installing dependencies and building this source directly, consider
-the following alternatives.
+## 🧭 Troubleshooting
 
-### Nix
+| Symptom | Likely Cause | Fix |
+|----------|---------------|-----|
+| Node not producing blocks | Missing session keys | Insert AURA/GRANDPA keys |
+| Bootnode mismatch warning | Default 127.0.0.1 bootnode injected | Use `ChainType::Live` in `chain_spec.rs` |
+| Permission denied under `/var/lib` | User permissions | `sudo chown -R $USER:staff /var/lib/eterra-testnet` |
+| Node reset but old data remains | Chain ID changed | Purge and remove old chain folder manually |
 
-Install [nix](https://nixos.org/) and
-[nix-direnv](https://github.com/nix-community/nix-direnv) for a fully
-plug-and-play experience for setting up the development environment. To get all
-the correct dependencies, activate direnv `direnv allow`.
+---
 
-### Docker
+**Maintainer:** Eterra Development Team  
+**License:** Apache 2.0
 
-Please follow the [Substrate Docker instructions
-here](https://github.com/paritytech/polkadot-sdk/blob/master/substrate/docker/README.md) to
-build the Docker container with the Substrate Node Template binary.

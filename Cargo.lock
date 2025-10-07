@@ -5362,6 +5362,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-node-authorization"
+version = "38.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "39ec3133be9e767b8feafbb26edd805824faa59956da008d2dc7fcf4b4720e56"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "log",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+]
+
+[[package]]
 name = "pallet-session"
 version = "38.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8417,6 +8433,7 @@ dependencies = [
  "clap",
  "frame-benchmarking-cli",
  "frame-metadata-hash-extension",
+ "frame-support",
  "frame-system",
  "futures",
  "jsonrpsee",
@@ -8476,6 +8493,7 @@ dependencies = [
  "pallet-eterra-simple-tcg",
  "pallet-eterra-tcg",
  "pallet-grandpa",
+ "pallet-node-authorization",
  "pallet-sudo",
  "pallet-template",
  "pallet-timestamp",

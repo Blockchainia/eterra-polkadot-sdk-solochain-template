@@ -67,6 +67,7 @@ sp-blockchain.workspace = true
 sp-blockchain.default-features = true
 sp-block-builder.workspace = true
 sp-block-builder.default-features = true
+frame-support.workspace = true
 frame-system.workspace = true
 frame-system.default-features = true
 frame-metadata-hash-extension.workspace = true

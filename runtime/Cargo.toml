@@ -28,6 +28,7 @@ frame-metadata-hash-extension.workspace = true
 pallet-aura.workspace = true
 pallet-balances.workspace = true
 pallet-grandpa.workspace = true
+pallet-node-authorization.workspace = true
 pallet-sudo.workspace = true
 pallet-timestamp.workspace = true
 pallet-transaction-payment.workspace = true
@@ -84,6 +85,7 @@ std = [
 	"pallet-aura/std",
 	"pallet-balances/std",
 	"pallet-grandpa/std",
+  "pallet-node-authorization/std",   
 	"pallet-sudo/std",
 	"pallet-template/std",
 	"pallet-timestamp/std",
@@ -92,6 +94,7 @@ std = [
 
   "pallet-eterra/std",
     "pallet-eterra-gamer/std",
+    "pallet-eterra-faucet/std",
    "pallet-eterra-simple-matchmaker/std",
 
 	"sp-api/std",

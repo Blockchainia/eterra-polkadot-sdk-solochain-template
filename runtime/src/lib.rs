@@ -15,13 +15,14 @@ use sp_runtime::{
     traits::{BlakeTwo256, IdentifyAccount, Verify},
     MultiAddress, MultiSignature,
 };
+use sp_runtime::traits::AccountIdConversion;
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 
 use codec::{Decode, Encode};
 use frame_support::parameter_types;
-// use frame_support::weights::IdentityFee;  // deleted as per instructions
+use frame_support::PalletId;
 use frame_support::traits::ConstU32;
 use frame_support::traits::ConstU64;
 use frame_support::traits::ConstU8;
@@ -29,9 +30,10 @@ use frame_support::traits::ConstU128;
 use frame_support::traits::ConstU16;
 
 use frame_support::traits::Get;
-// use frame_support::traits::Contains;  // deleted as per instructions
 pub use frame_system::Call as SystemCall;
 pub use pallet_balances::Call as BalancesCall;
+use pallet_node_authorization;
+
 pub use pallet_eterra;
 pub use pallet_eterra_daily_slots;
 pub use pallet_eterra_faucet;
@@ -267,25 +269,44 @@ impl Get<u32> for MaxWeightEntries {
     }
 }
 
-// === Faucet configuration parameters ===
-use sp_runtime::AccountId32;
+parameter_types! {
+    pub const MaxWellKnownNodes: u32 = 128;   // adjust as you like
+    pub const MaxPeerIdLength: u32 = 128;     // libp2p PeerId length upper bound
+}
 
-/// Dev Alice account (//Alice) public key as AccountId32
-const ALICE: AccountId32 = AccountId32::new([
-    0xd4, 0x35, 0x93, 0xc7, 0x15, 0xfd, 0xd3, 0x1c, 0x61, 0x14, 0x1a, 0xbd, 0x04, 0xa9, 0x9f, 0xd6,
-    0x82, 0x2c, 0x85, 0x58, 0x85, 0x4c, 0xcd, 0xe3, 0x9a, 0x56, 0x84, 0xe7, 0xa5, 0x6d, 0xa2, 0x7d,
-]);
+
+impl pallet_node_authorization::Config for Runtime {
+    type RuntimeEvent = RuntimeEvent;
+    type MaxWellKnownNodes = MaxWellKnownNodes;
+    type MaxPeerIdLength = MaxPeerIdLength;
+
+    // While bootstrapping, keep it simple: Root controls the allowlist.
+    type AddOrigin   = frame_system::EnsureRoot<AccountId>;
+    type RemoveOrigin= frame_system::EnsureRoot<AccountId>;
+    type SwapOrigin  = frame_system::EnsureRoot<AccountId>;
+    type ResetOrigin = frame_system::EnsureRoot<AccountId>;
+
+    type WeightInfo = ();
+}
+
+
+
+// === Faucet configuration parameters ===
 
 parameter_types! {
-    pub FaucetAccountParam: AccountId = ALICE.into();
-    pub AiBotAccountParam: AccountId = ALICE.into();
+    // Treasury account derived from a fixed PalletId; do not change after genesis.
+    pub const TreasuryPalletId: PalletId = PalletId(*b"py/trsry");
+    pub TreasuryAccount: AccountId = TreasuryPalletId::get().into_account_truncating();
+
+    // AI bot can also use a PalletId-based account to avoid dev keys.
+    pub const AiBotPalletId: PalletId = PalletId(*b"ai/bot__");
+    pub AiBotAccountParam: AccountId = AiBotPalletId::get().into_account_truncating();
 
     pub const PlayersPerMatchConst: u8 = 2;
     pub const QueueCapacityConst: u32 = 1024;
 
     // Payout is 1000 whole tokens (adjust UNIT to your decimals)
     pub FaucetPayoutAmount: Balance = 1_000 * UNIT;
-
 }
 
 pub struct AiBotDifficulty;
@@ -341,8 +362,8 @@ impl pallet_eterra_simple_tcg::Config for Runtime {
     // NEW: fixed mint fee of 100 whole tokens (uses your UNIT = base units)
     type MintFee = ConstU128<{ 100 * UNIT }>;
 
-    // NEW: the faucet account that should receive the fee (Alice via parameter_types!)
-    type FaucetAccount = FaucetAccountParam;
+    // NEW: the faucet account that should receive the fee (Treasury via PalletId!)
+    type FaucetAccount = TreasuryAccount;
 }
 
 impl pallet_eterra_daily_slots::Config for Runtime {
@@ -389,7 +410,7 @@ impl pallet_eterra_gamer::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type Currency = Balances;
     type ExpIssuerOrigin = frame_system::EnsureRoot<AccountId>;
-    type FaucetAccount = FaucetAccountParam;
+    type FaucetAccount = TreasuryAccount;
     type ChangeFee = GamerChangeFee;
     type MaxTagLen = GamerTagMaxLen;
     type MaxAvatarCidLen = AvatarCidMaxLen;
@@ -460,4 +481,7 @@ mod runtime {
 
     #[runtime::pallet_index(15)]
     pub type EterraGamer = pallet_eterra_gamer;
+
+    #[runtime::pallet_index(16)]
+    pub type NodeAuthorization = pallet_node_authorization;
 }

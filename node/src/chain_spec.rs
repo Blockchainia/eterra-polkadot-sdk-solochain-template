@@ -4,6 +4,8 @@ use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_core::{sr25519, Pair, Public};
 use sp_runtime::traits::{IdentifyAccount, Verify};
+use frame_support::PalletId;
+use sp_runtime::traits::AccountIdConversion;
 
 // The URL for the telemetry server.
 // const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polkadot.io/submit/";
@@ -33,6 +35,13 @@ pub fn authority_keys_from_seed(s: &str) -> (AuraId, GrandpaId) {
     (get_from_seed::<AuraId>(s), get_from_seed::<GrandpaId>(s))
 }
 
+// Treasury derived from the same PalletId as in the runtime.
+const TREASURY_PALLET_ID: PalletId = PalletId(*b"py/trsry");
+
+fn treasury_account() -> AccountId {
+    TREASURY_PALLET_ID.into_account_truncating()
+}
+
 fn chain_properties() -> Properties {
     let mut props = Properties::new();
     props.insert("tokenSymbol".into(), "COIN".into());
@@ -41,8 +50,7 @@ fn chain_properties() -> Properties {
 }
 
 pub fn development_config() -> Result<ChainSpec, String> {
-    // Faucet account derived from dev seed
-    let faucet = get_account_id_from_seed::<sr25519::Public>("Faucet");
+    let treasury = treasury_account();
 
     Ok(ChainSpec::builder(
         WASM_BINARY.ok_or_else(|| "Development wasm not available".to_string())?,
@@ -63,26 +71,31 @@ pub fn development_config() -> Result<ChainSpec, String> {
             get_account_id_from_seed::<sr25519::Public>("Bob"),
             get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
             get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
-            faucet.clone(),
+            treasury.clone(),
         ],
         true,
-        faucet,
+        treasury,
         1_000_000_000_000_000u128,
     ))
     .build())
 }
 
+// NOTE:
+// We intentionally use `ChainType::Live` and a non-template chain ID ("eterra_testnet").
+// Substrate injects a default 127.0.0.1 bootnode when the ID is "local_testnet" or the
+// chain type is Local during build-spec -> RAW conversion (unless --disable-default-bootnode).
+// Using a unique ID and Live avoids hidden bootnode injection. All bootnodes must now be
+// explicitly provided in the human spec (or via CLI), which is what we want for Eterra.
 pub fn local_testnet_config() -> Result<ChainSpec, String> {
-    // Faucet account derived from dev seed
-    let faucet = get_account_id_from_seed::<sr25519::Public>("Faucet");
+    let treasury = treasury_account();
 
     Ok(ChainSpec::builder(
         WASM_BINARY.ok_or_else(|| "Development wasm not available".to_string())?,
         None,
     )
-    .with_name("Local Testnet")
-    .with_id("local_testnet")
-    .with_chain_type(ChainType::Local)
+    .with_name("Eterra Testnet")
+    .with_id("eterra_testnet")
+    .with_chain_type(ChainType::Live)
     .with_properties(chain_properties())
     .with_genesis_config_patch(testnet_genesis(
         // Initial PoA authorities
@@ -106,10 +119,10 @@ pub fn local_testnet_config() -> Result<ChainSpec, String> {
             get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
             get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
             get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
-            faucet.clone(),
+            treasury.clone(),
         ],
         true,
-        faucet,
+        treasury,
         1_000_000_000_000_000u128,
     ))
     .build())

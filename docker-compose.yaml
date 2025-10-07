@@ -1,0 +1,53 @@
+version: "3.8"
+
+services:
+  eterra-node:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    # If you want to force architecture, uncomment one:
+    # platform: linux/amd64
+    # platform: linux/arm64
+    image: eterra/solochain-eterra-node:local
+    container_name: eterra-node
+    restart: unless-stopped
+
+    environment:
+      # Data dir inside container
+      - BASE_PATH=/data
+      # Auto-insert session keys (use only for local/dev)
+      - INSERT_KEYS=true
+      # For non-Alice validators, override:
+      # - AURA_SURI=//YourSuri
+      # - GRANDPA_SURI=//YourSuri
+      # Optional: stable libp2p identity
+      # - NODE_KEY_HEX=<64-hex-chars>
+      # or mount a file and set:
+      # - NODE_KEY_FILE=/secrets/secret_ed25519
+      # P2P/RPC ports
+      - P2P_PORT=30333
+      - RPC_PORT=9944
+      # public multiaddr; you can set to your public IP
+      - PUBLIC_ADDR=/ip4/0.0.0.0/tcp/30333
+      # Pass any extra node CLI flags:
+      # - EXTRA_ARGS=--state-pruning archive
+
+    volumes:
+      # persistent chain data
+      - eterra-data:/data
+      # mount your chain-specs (ensure testnet.json or testnet-raw.json exists)
+      - ./chain-specs:/etc/eterra/chain-specs:ro
+      # optional: mount a libp2p node key
+      # - ./secrets:/secrets:ro
+
+    ports:
+      - "9944:9944"    # RPC / WS
+      - "30333:30333"  # P2P
+
+    # For macOS/Ubuntu alike: no flags needed. Docker handles the host.
+    # Add capabilities if you plan to use perf tools inside container:
+    # cap_add:
+    #   - NET_ADMIN
+
+volumes:
+  eterra-data:

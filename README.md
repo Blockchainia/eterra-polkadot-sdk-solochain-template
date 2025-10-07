@@ -125,6 +125,55 @@ Restoring from a backup will replace the current chain database and keystore wit
 This is useful when migrating to a new machine, recovering from accidental data loss, or rolling back to a previous known good state.  
 Always ensure the node is stopped before restoring, and verify permissions on `/var/lib/eterra-testnet` afterward to avoid startup errors.
 
+### 🧩 Restore Instructions (for Terminal)
+
+```bash
+# 1. Stop the running node process
+# (If you started it manually, press Ctrl+C in its terminal window)
+# If running as a systemd service, you can stop it using:
+# sudo systemctl stop eterra-node
+```
+
+```bash
+# 2. Define your base path and backup file
+BASE=/var/lib/eterra-testnet/alice
+BACKUP=/path/to/alice-backup.tar.gz
+```
+
+```bash
+# 3. Verify the backup file exists
+ls -lh "$BACKUP"
+```
+
+```bash
+# 4. Create a safety snapshot of your current data (optional but recommended)
+tar -czf ~/eterra-backups/pre-restore-$(date +%Y%m%d%H%M).tar.gz -C "$BASE" chains keystore
+echo "Safety snapshot created."
+```
+
+```bash
+# 5. Purge current state before restoring (optional if the node is already clean)
+./target/release/solochain-eterra-node purge-chain \
+  --chain chain-specs/testnet-raw.json \
+  --base-path "$BASE" -y
+```
+
+```bash
+# 6. Extract the backup archive into your base path
+tar -xzf "$BACKUP" -C "$BASE"
+```
+
+```bash
+# 7. Verify restored files
+ls -R "$BASE"/chains | head
+ls -R "$BASE"/keystore | head
+```
+
+```bash
+# 8. Fix permissions (important for macOS or after copying from another system)
+sudo chown -R $USER:staff "$BASE"
+```
+
 ---
 
 ## 🔍 Useful Commands
@@ -206,4 +255,3 @@ You should see **Eterra Testnet** in the upper left corner.
 
 **Maintainer:** Eterra Development Team  
 **License:** Apache 2.0
-

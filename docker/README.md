@@ -6,6 +6,7 @@ This guide provides comprehensive instructions for building, running, backing up
 
 ## Table of Contents
 
+- [Prerequisites (Linux)](#prerequisites-linux)
 - [Building the Docker Image](#building-the-docker-image)
 - [Running the Node](#running-the-node)
 - [Backing Up the Node Data](#backing-up-the-node-data)
@@ -14,6 +15,73 @@ This guide provides comprehensive instructions for building, running, backing up
 - [Docker Compose Configuration](#docker-compose-configuration)
 - [Troubleshooting](#troubleshooting)
 - [Multi-Architecture Build](#multi-architecture-build)
+
+---
+
+## Rust Prerequisites (for Building the Node)
+
+If you plan to build the `solochain-eterra-node` binary or rebuild the Docker image from source, ensure your environment has the proper Rust toolchain installed.
+
+### 1. Install Rust and Cargo
+```bash
+curl https://sh.rustup.rs -sSf | sh
+source $HOME/.cargo/env
+```
+
+### 2. Verify Installation
+```bash
+rustc --version
+cargo --version
+```
+
+### 3. Install the Required Rust Toolchain for Substrate
+Substrate-based projects require a nightly Rust toolchain. Use the recommended version for compatibility with this node:
+```bash
+rustup install nightly-2023-12-07
+rustup target add wasm32-unknown-unknown --toolchain nightly-2023-12-07
+rustup override set nightly-2023-12-07
+```
+
+### 4. Install System Build Dependencies
+
+**For Ubuntu / Debian:**
+```bash
+sudo apt update
+sudo apt install -y build-essential clang pkg-config libssl-dev git cmake
+```
+
+**For macOS:**
+```bash
+brew install llvm cmake openssl
+```
+
+After completing these steps, proceed with the [Prerequisites (Linux)](#prerequisites-linux) section to prepare Docker and Docker Compose.
+
+---
+
+## Prerequisites (Linux)
+
+Before building and running the node on Linux, ensure Docker and Docker Compose are installed and running.
+
+1. **Install Docker and Docker Compose:**
+   ```bash
+   sudo apt update && sudo apt install -y docker.io docker-compose
+   sudo systemctl enable --now docker
+   ```
+
+2. **Verify installation:**
+   ```bash
+   docker --version
+   docker compose version
+   ```
+
+3. **Clone the repository and navigate into it:**
+   ```bash
+   git clone https://github.com/your-org/polkadot-sdk-solochain-template.git
+   cd polkadot-sdk-solochain-template/docker
+   ```
+
+Once these prerequisites are complete, continue with the [Building the Docker Image](#building-the-docker-image) section below.
 
 ---
 

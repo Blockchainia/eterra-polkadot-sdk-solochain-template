@@ -41,6 +41,7 @@ pub use pallet_eterra_simple_tcg;
 pub use pallet_eterra_tcg;
 pub use pallet_eterra_simple_matchmaker;
 pub use pallet_eterra_gamer;
+pub use pallet_eterra_game_authority;
 
 pub struct HandProviderAdapter;
 
@@ -208,6 +209,26 @@ pub type Executive = frame_executive::Executive<
     AllPalletsWithSystem,
     Migrations,
 >;
+
+parameter_types! {
+    // 6 seconds per block → ~30 blocks for ~3 minutes
+    pub const MaxExpirationsPerBlock: u32 = 256; // tune as needed
+}
+
+parameter_types! {
+    pub const MaxPlayersPerGameConst: u32 = 128; // tune as needed
+}
+
+impl pallet_eterra_game_authority::Config for Runtime {
+    type RuntimeEvent = RuntimeEvent;
+    type MaxPlayersPerGame = MaxPlayersPerGameConst;
+    type AdminOrigin = frame_system::EnsureRoot<AccountId>;
+    type MaxExpirationsPerBlock = MaxExpirationsPerBlock;
+    // If your BlockNumber is u32/u64, set 30 blocks:
+    type MaxRoundBlocks = frame_support::traits::ConstU32<30>;
+    // or, if BlockNumber is u64:
+    // type MaxRoundBlocks = frame_support::traits::ConstU64<30>;
+}
 
 #[derive(Encode, Decode, TypeInfo, Clone, Copy, PartialEq, Eq, Debug)]
 pub struct EterraNumPlayers;
@@ -484,4 +505,7 @@ mod runtime {
 
     #[runtime::pallet_index(16)]
     pub type NodeAuthorization = pallet_node_authorization;
+
+    #[runtime::pallet_index(17)]
+    pub type EterraGameAuthority = pallet_eterra_game_authority;
 }

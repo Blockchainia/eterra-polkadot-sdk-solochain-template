@@ -219,16 +219,7 @@ parameter_types! {
     pub const MaxPlayersPerGameConst: u32 = 128; // tune as needed
 }
 
-impl pallet_eterra_game_authority::Config for Runtime {
-    type RuntimeEvent = RuntimeEvent;
-    type MaxPlayersPerGame = MaxPlayersPerGameConst;
-    type AdminOrigin = frame_system::EnsureRoot<AccountId>;
-    type MaxExpirationsPerBlock = MaxExpirationsPerBlock;
-    // If your BlockNumber is u32/u64, set 30 blocks:
-    type MaxRoundBlocks = frame_support::traits::ConstU32<30>;
-    // or, if BlockNumber is u64:
-    // type MaxRoundBlocks = frame_support::traits::ConstU64<30>;
-}
+
 
 #[derive(Encode, Decode, TypeInfo, Clone, Copy, PartialEq, Eq, Debug)]
 pub struct EterraNumPlayers;
@@ -397,6 +388,17 @@ impl pallet_eterra_daily_slots::Config for Runtime {
     type MaxWeightEntries = MaxWeightEntries;
     type Currency = Balances;
     type RewardPerWin = RewardPerWinAmount; // defined below
+}
+
+impl pallet_eterra_game_authority::Config for Runtime {
+    type RuntimeEvent = RuntimeEvent;
+    type MaxPlayersPerGame = MaxPlayersPerGameConst;
+    type AdminOrigin = frame_system::EnsureRoot<AccountId>;
+    type MaxExpirationsPerBlock = MaxExpirationsPerBlock;
+    // If your BlockNumber is u32/u64, set 30 blocks:
+    type MaxRoundBlocks = frame_support::traits::ConstU32<30>;
+    // or, if BlockNumber is u64:
+    // type MaxRoundBlocks = frame_support::traits::ConstU64<30>;
 }
 
 pub struct RewardPerWinAmount;

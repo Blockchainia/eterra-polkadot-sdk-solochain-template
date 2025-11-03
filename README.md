@@ -100,6 +100,55 @@ BASE=/var/lib/eterra-testnet/alice
 
 ---
 
+## ♻️ Updating Runtime After Adding or Modifying a Pallet
+
+When you add or update a pallet in the runtime, you must rebuild the runtime, regenerate the chain specs, and ensure your node runs with the updated runtime. Follow these steps:
+
+1. Build the runtime and node binaries:
+
+```bash
+cargo build -p solochain-eterra-node --release
+```
+
+2. Rebuild the plain and raw chain specs:
+
+```bash
+./target/release/solochain-eterra-node build-spec --chain local --disable-default-bootnode > chain-specs/testnet.json
+
+./target/release/solochain-eterra-node build-spec --chain chain-specs/testnet.json --raw > chain-specs/testnet-raw.json
+```
+
+3. Verify that the WASM runtime hash in the built runtime matches the one in the chain spec:
+
+```bash
+# Check WASM hash from wbuild
+wasm_hash=$(cargo run -p wbuild --release -- show-runtime-wasm-hash)
+
+# Check WASM hash in chain spec
+jq -r '.genesis.runtime.runtime_code_hash' chain-specs/testnet-raw.json
+
+# Compare the two hashes to ensure they match
+```
+
+4. Purge the existing chain database to avoid runtime version conflicts:
+
+```bash
+BASE=/var/lib/eterra-testnet/alice
+
+./target/release/solochain-eterra-node purge-chain --chain chain-specs/testnet-raw.json --base-path "$BASE" -y
+```
+
+5. Restart the node with the updated chain spec and base path:
+
+```bash
+./target/release/solochain-eterra-node --chain chain-specs/testnet-raw.json --base-path "$BASE" --validator --alice --force-authoring
+```
+
+**Troubleshooting:**  
+If you do not see your new or updated pallets in Polkadot.js Apps, verify that the runtime WASM hash matches the chain spec, and clear the Polkadot.js metadata cache (in the Apps portal, click the settings gear and select "Clear metadata cache") before reconnecting.
+
+---
+
 ## 💾 Backing Up Chain State
 
 To back up your local node’s database and keystore safely:

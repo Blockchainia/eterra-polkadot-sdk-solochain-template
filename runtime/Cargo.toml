@@ -97,6 +97,7 @@ std = [
     "pallet-eterra-gamer/std",
     "pallet-eterra-faucet/std",
    "pallet-eterra-simple-matchmaker/std",
+  "pallet-eterra-game-authority/std",
 
 	"sp-api/std",
 	"sp-block-builder/std",

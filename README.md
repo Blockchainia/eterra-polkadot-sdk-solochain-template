@@ -107,30 +107,22 @@ When you add or update a pallet in the runtime, you must rebuild the runtime, re
 1. Build the runtime and node binaries:
 
 ```bash
-cargo build -p solochain-eterra-node --release
+cargo build -r -p solochain-template-runtime -p solochain-eterra-node
 ```
 
 2. Rebuild the plain and raw chain specs:
 
 ```bash
-./target/release/solochain-eterra-node build-spec --chain local --disable-default-bootnode > chain-specs/testnet.json
-
-./target/release/solochain-eterra-node build-spec --chain chain-specs/testnet.json --raw > chain-specs/testnet-raw.json
+./target/release/solochain-eterra-node build-spec \
+  --chain chain-specs/testnet.json > chain-specs/testnet-plain.json
 ```
-
-3. Verify that the WASM runtime hash in the built runtime matches the one in the chain spec:
 
 ```bash
-# Check WASM hash from wbuild
-wasm_hash=$(cargo run -p wbuild --release -- show-runtime-wasm-hash)
-
-# Check WASM hash in chain spec
-jq -r '.genesis.runtime.runtime_code_hash' chain-specs/testnet-raw.json
-
-# Compare the two hashes to ensure they match
+./target/release/solochain-eterra-node build-spec \
+  --chain chain-specs/testnet-plain.json --raw > chain-specs/testnet-raw.json
 ```
 
-4. Purge the existing chain database to avoid runtime version conflicts:
+3. Purge the existing chain database to avoid runtime version conflicts:
 
 ```bash
 BASE=/var/lib/eterra-testnet/alice
@@ -138,14 +130,25 @@ BASE=/var/lib/eterra-testnet/alice
 ./target/release/solochain-eterra-node purge-chain --chain chain-specs/testnet-raw.json --base-path "$BASE" -y
 ```
 
-5. Restart the node with the updated chain spec and base path:
+4. Restart the node with the updated chain spec and base path:
 
 ```bash
-./target/release/solochain-eterra-node --chain chain-specs/testnet-raw.json --base-path "$BASE" --validator --alice --force-authoring
+BASE=/var/lib/eterra-testnet/alice
+
+./target/release/solochain-eterra-node \
+  --chain chain-specs/testnet-raw.json \
+  --base-path "$BASE" \
+  --validator --alice \
+  --force-authoring \
+  --port 30333 --rpc-port 9944 \
+  --public-addr /ip4/127.0.0.1/tcp/30333 \
+  --unsafe-rpc-external --rpc-cors all
 ```
 
 **Troubleshooting:**  
 If you do not see your new or updated pallets in Polkadot.js Apps, verify that the runtime WASM hash matches the chain spec, and clear the Polkadot.js metadata cache (in the Apps portal, click the settings gear and select "Clear metadata cache") before reconnecting.
+
+Tip: To verify genesis config like initialServers landed, run: `jq '.genesis | .. | objects | select(has("initialServers"))' chain-specs/testnet-plain.json`
 
 ---
 
@@ -225,28 +228,6 @@ sudo chown -R $USER:staff "$BASE"
 
 ---
 
-## 🔍 Useful Commands
-
-### Build a Human-Readable Chain Spec
-```bash
-./target/release/solochain-eterra-node build-spec \
-  --chain local --disable-default-bootnode > chain-specs/testnet.json
-```
-
-### Convert to a Raw Chain Spec (for validators)
-```bash
-./target/release/solochain-eterra-node build-spec \
-  --chain chain-specs/testnet.json \
-  --raw --disable-default-bootnode > chain-specs/testnet-raw.json
-```
-
-### Verify Bootnodes (should be empty for Eterra Testnet)
-```bash
-jq '.bootNodes' chain-specs/testnet-raw.json
-```
-
----
-
 ## 🧠 Notes
 
 - The Eterra Testnet is configured as a `ChainType::Live` network with **no default bootnodes** injected.
@@ -262,20 +243,6 @@ jq '.bootNodes' chain-specs/testnet-raw.json
 - **`runtime/`** — The Eterra runtime configuration, including all pallets.
 - **`pallets/`** — Custom Eterra pallets (e.g., Faucet, Rewards, etc.).
 - **`chain-specs/`** — Stored chain spec JSON files for dev and testnet environments.
-
----
-
-## ⚙️ Example: Recreate Testnet Genesis
-
-```bash
-./target/release/solochain-eterra-node build-spec \
-  --chain local --disable-default-bootnode > chain-specs/testnet.json
-
-# Manually adjust authorities, balances, faucet, and treasury as needed.
-# Then:
-./target/release/solochain-eterra-node build-spec \
-  --chain chain-specs/testnet.json --raw > chain-specs/testnet-raw.json
-```
 
 ---
 

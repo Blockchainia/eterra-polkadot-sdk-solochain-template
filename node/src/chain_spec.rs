@@ -76,6 +76,7 @@ pub fn development_config() -> Result<ChainSpec, String> {
         true,
         treasury,
         1_000_000_000_000_000u128,
+        vec![ get_account_id_from_seed::<sr25519::Public>("Alice") ],
     ))
     .build())
 }
@@ -124,6 +125,10 @@ pub fn local_testnet_config() -> Result<ChainSpec, String> {
         true,
         treasury,
         1_000_000_000_000_000u128,
+        vec![
+            get_account_id_from_seed::<sr25519::Public>("Alice"),
+            get_account_id_from_seed::<sr25519::Public>("Bob"),
+        ],
     ))
     .build())
 }
@@ -136,11 +141,12 @@ fn testnet_genesis(
     _enable_println: bool,
     faucet_account: AccountId,
     payout_amount: u128,
+    initial_servers: Vec<AccountId>,
 ) -> serde_json::Value {
     serde_json::json!({
         "balances": {
             // Configure endowed accounts with initial balance of 1 << 60.
-            "balances": endowed_accounts.iter().cloned().map(|k| (k, 1u64 << 60)).collect::<Vec<_>>(),
+            "balances": endowed_accounts.iter().cloned().map(|k| (k, (1u128 << 60))).collect::<Vec<_>>(),
         },
         "aura": {
             "authorities": initial_authorities.iter().map(|x| (x.0.clone())).collect::<Vec<_>>(),
@@ -154,7 +160,28 @@ fn testnet_genesis(
         },
         "eterraFaucet": {
             "faucetAccount": faucet_account,
-            "payoutAmount": payout_amount
+            "payoutAmount": payout_amount,
+        },
+        "eterraGameAuthority": {
+            "initialServers": initial_servers
         }
     })
+}
+
+pub fn testnet_config() -> Result<ChainSpec, String> {
+    // For compatibility with `--chain testnet`, reuse the eterra_testnet config.
+    local_testnet_config()
+}
+
+/// Load a chain spec by identifier or from a JSON file path.
+pub fn load_spec(id: &str) -> Result<ChainSpec, String> {
+    match id {
+        // Built-in configs
+        "dev" | "development" => development_config(),
+        "local" | "local_testnet" => local_testnet_config(),
+        "testnet" => testnet_config(),
+        "eterra_testnet" => local_testnet_config(),
+        // Fallback: treat the argument as a path to a JSON chainspec file
+        path => ChainSpec::from_json_file(std::path::PathBuf::from(path)),
+    }
 }

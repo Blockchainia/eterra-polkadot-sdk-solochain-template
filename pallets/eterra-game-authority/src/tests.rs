@@ -229,3 +229,102 @@ fn create_game_schedules_expiration() {
             assert!(scheduled.contains(&0), "game 0 not scheduled for expiration at {}", expire_at);
         });
 }
+
+use frame_support::BoundedVec;
+
+#[test]
+fn batch_add_happy_path_adds_multiple_players() {
+    ExtBuilder::default()
+        .with_servers(vec![ALICE])
+        .build()
+        .execute_with(|| {
+            // Create game #0 by Alice
+            assert_ok!(GamePallet::<Test>::create_game(RuntimeOrigin::signed(ALICE)));
+
+            // Batch add BOB and CHARLIE
+            let players: BoundedVec<_, <Test as pallet_eterra_game_authority::Config>::MaxBatchAdd> =
+                BoundedVec::try_from(vec![BOB, CHARLIE]).expect("within MaxBatchAdd");
+            assert_ok!(GamePallet::<Test>::add_players_batch(RuntimeOrigin::signed(ALICE), 0, players));
+
+            // Both are in the game and active mapping set
+            let game = pallet_eterra_game_authority::Games::<Test>::get(0).expect("game exists");
+            assert!(game.players.contains(&BOB));
+            assert!(game.players.contains(&CHARLIE));
+            assert_eq!(pallet_eterra_game_authority::ActiveGameByPlayer::<Test>::get(BOB), Some(0));
+            assert_eq!(pallet_eterra_game_authority::ActiveGameByPlayer::<Test>::get(CHARLIE), Some(0));
+        });
+}
+
+#[test]
+fn batch_add_skips_players_already_in_other_active_game() {
+    ExtBuilder::default()
+        .with_servers(vec![ALICE])
+        .build()
+        .execute_with(|| {
+            // Game #0: add BOB as single add
+            assert_ok!(GamePallet::<Test>::create_game(RuntimeOrigin::signed(ALICE)));
+            assert_ok!(GamePallet::<Test>::add_player(RuntimeOrigin::signed(ALICE), 0, BOB));
+
+            // Game #1: batch add tries to add BOB (already active) and CHARLIE (free)
+            assert_ok!(GamePallet::<Test>::create_game(RuntimeOrigin::signed(ALICE)));
+            let players: BoundedVec<_, <Test as pallet_eterra_game_authority::Config>::MaxBatchAdd> =
+                BoundedVec::try_from(vec![BOB, CHARLIE]).unwrap();
+            assert_ok!(GamePallet::<Test>::add_players_batch(RuntimeOrigin::signed(ALICE), 1, players));
+
+            // BOB remains only in game #0
+            let game0 = pallet_eterra_game_authority::Games::<Test>::get(0).unwrap();
+            let game1 = pallet_eterra_game_authority::Games::<Test>::get(1).unwrap();
+            assert!(game0.players.contains(&BOB));
+            assert!(!game1.players.contains(&BOB));
+            // CHARLIE added to game #1
+            assert!(game1.players.contains(&CHARLIE));
+            assert_eq!(pallet_eterra_game_authority::ActiveGameByPlayer::<Test>::get(BOB), Some(0));
+            assert_eq!(pallet_eterra_game_authority::ActiveGameByPlayer::<Test>::get(CHARLIE), Some(1));
+        });
+}
+
+#[test]
+fn create_game_with_batch_add_creates_and_adds_players() {
+    ExtBuilder::default()
+        .with_servers(vec![ALICE])
+        .build()
+        .execute_with(|| {
+            let players: BoundedVec<_, <Test as pallet_eterra_game_authority::Config>::MaxBatchAdd> =
+                BoundedVec::try_from(vec![BOB, CHARLIE]).unwrap();
+            assert_ok!(GamePallet::<Test>::create_game_with_batch_add(RuntimeOrigin::signed(ALICE), players));
+
+            // Game #0 exists, started, players present
+            let game = pallet_eterra_game_authority::Games::<Test>::get(0).expect("game exists");
+            assert!(game.started && !game.ended);
+            assert!(game.players.contains(&BOB));
+            assert!(game.players.contains(&CHARLIE));
+
+            // Active mapping set
+            assert_eq!(pallet_eterra_game_authority::ActiveGameByPlayer::<Test>::get(BOB), Some(0));
+            assert_eq!(pallet_eterra_game_authority::ActiveGameByPlayer::<Test>::get(CHARLIE), Some(0));
+
+            // Expiration scheduled at now + 30 (from mock MaxRoundBlocks)
+            let expire_at = System::block_number() + 30;
+            let scheduled = pallet_eterra_game_authority::Expirations::<Test>::get(expire_at);
+            assert!(scheduled.contains(&0));
+        });
+}
+
+#[test]
+fn create_game_with_batch_add_skips_duplicates() {
+    ExtBuilder::default()
+        .with_servers(vec![ALICE])
+        .build()
+        .execute_with(|| {
+            let players: BoundedVec<_, <Test as pallet_eterra_game_authority::Config>::MaxBatchAdd> =
+                BoundedVec::try_from(vec![BOB, BOB, CHARLIE]).unwrap();
+            assert_ok!(GamePallet::<Test>::create_game_with_batch_add(RuntimeOrigin::signed(ALICE), players));
+
+            let game = pallet_eterra_game_authority::Games::<Test>::get(0).unwrap();
+            assert!(game.players.contains(&BOB));
+            assert!(game.players.contains(&CHARLIE));
+            // Only unique players should be present
+            let count = game.players.len();
+            assert_eq!(count, 2);
+        });
+}

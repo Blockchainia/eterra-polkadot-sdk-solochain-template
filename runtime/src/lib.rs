@@ -399,6 +399,9 @@ impl pallet_eterra_game_authority::Config for Runtime {
     type MaxRoundBlocks = frame_support::traits::ConstU32<30>;
     // or, if BlockNumber is u64:
     // type MaxRoundBlocks = frame_support::traits::ConstU64<30>;
+
+    // Max players that can be added in a single batch to a game
+    type MaxBatchAdd = frame_support::traits::ConstU32<32>;
 }
 
 pub struct RewardPerWinAmount;

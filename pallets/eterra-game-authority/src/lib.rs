@@ -32,6 +32,10 @@ pub mod pallet {
         type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
         #[pallet::constant]
         type MaxPlayersPerGame: Get<u32>;
+        /// Maximum number of players that can be added in a single batch add call.
+        /// Set to 32 in the runtime if you want a conservative bound; set higher if desired.
+        #[pallet::constant]
+        type MaxBatchAdd: Get<u32>;
         type AdminOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
         /// Maximum number of expirations processed in a single block (bounds on_initialize work)
@@ -224,7 +228,103 @@ pub mod pallet {
             Ok(())
         }
 
+        /// Batch add players to a game. This is a best-effort operation: players that fail
+        /// validation (already in another game, already in this game, or game full) are skipped.
+        /// Emits `PlayerAdded` for each successfully added player.
         #[pallet::call_index(4)]
+        #[pallet::weight({
+            // Weight scales linearly with number of players checked/inserted.
+            let n = players.len() as u64;
+            T::DbWeight::get().reads_writes(1 + n, 1 + 2*n)
+        })]
+        pub fn add_players_batch(
+            origin: T::RuntimeOrigin,
+            game_id: GameId,
+            players: BoundedVec<T::AccountId, T::MaxBatchAdd>,
+        ) -> DispatchResult {
+            let caller = ensure_signed(origin)?;
+            Self::ensure_whitelisted(&caller)?;
+            Games::<T>::try_mutate(game_id, |maybe_game| -> DispatchResult {
+                let game = maybe_game.as_mut().ok_or(Error::<T>::GameNotFound)?;
+                ensure!(caller == game.server, Error::<T>::NotGameOwnerServer);
+                ensure!(game.started, Error::<T>::GameNotStarted);
+                ensure!(!game.ended, Error::<T>::GameAlreadyEnded);
+
+                for p in players.into_iter() {
+                    // Skip if already in another active game or already in this game
+                    if ActiveGameByPlayer::<T>::get(&p).is_some() { continue; }
+                    if game.players.contains(&p) { continue; }
+                    // Try insert; if full, stop early to avoid unnecessary work
+                    if game.players.try_insert(p.clone()).is_ok() {
+                        ActiveGameByPlayer::<T>::insert(&p, game_id);
+                        Self::deposit_event(Event::PlayerAdded(game_id, p));
+                    } else {
+                        // Game is full; no further inserts are possible
+                        break;
+                    }
+                }
+                Ok(())
+            })
+        }
+
+        /// Create a game and immediately batch-add players in a single extrinsic.
+        /// Best-effort: players already active elsewhere or duplicates are skipped; stops when full.
+        #[pallet::call_index(7)]
+        #[pallet::weight({
+            let n = players.len() as u64;
+            // Rough linear scaling: create game + schedule expiration + per-player checks/inserts
+            T::DbWeight::get().reads_writes(4 + n, 3 + 2*n)
+        })]
+        pub fn create_game_with_batch_add(
+            origin: T::RuntimeOrigin,
+            players: BoundedVec<T::AccountId, T::MaxBatchAdd>,
+        ) -> DispatchResult {
+            let server = ensure_signed(origin)?;
+            Self::ensure_whitelisted(&server)?;
+
+            // Create the game
+            let id = NextGameId::<T>::get();
+            let mut info = GameInfo::<T::AccountId, T::MaxPlayersPerGame> {
+                server: server.clone(),
+                players: BoundedBTreeSet::new(),
+                started: true,
+                ended: false,
+            };
+
+            // Schedule automatic end of game after MaxRoundBlocks from now.
+            let now = <frame_system::Pallet<T>>::block_number();
+            let expire_at = now.saturating_add(T::MaxRoundBlocks::get());
+            Expirations::<T>::mutate(expire_at, |list| {
+                let _ = list.try_push(id);
+            });
+
+            // Fill players best-effort before inserting the game into storage
+            let mut added: Vec<T::AccountId> = Vec::new();
+            for p in players.into_iter() {
+                if ActiveGameByPlayer::<T>::get(&p).is_some() { continue; }
+                if info.players.contains(&p) { continue; }
+                if info.players.try_insert(p.clone()).is_ok() {
+                    added.push(p);
+                } else {
+                    break; // full
+                }
+            }
+
+            // Persist game
+            Games::<T>::insert(id, info);
+            NextGameId::<T>::put(id.saturating_add(1));
+            Self::deposit_event(Event::GameCreated(id, server));
+
+            // Update per-player active mapping and emit events
+            for p in added.into_iter() {
+                ActiveGameByPlayer::<T>::insert(&p, id);
+                Self::deposit_event(Event::PlayerAdded(id, p));
+            }
+
+            Ok(())
+        }
+
+        #[pallet::call_index(5)]
         #[pallet::weight(T::DbWeight::get().reads_writes(1, 1))]
         pub fn record_eliminations(origin: T::RuntimeOrigin, game_id: GameId, player: T::AccountId, delta: u32) -> DispatchResult {
             let caller = ensure_signed(origin)?;
@@ -244,7 +344,7 @@ pub mod pallet {
             })
         }
 
-        #[pallet::call_index(5)]
+        #[pallet::call_index(6)]
         #[pallet::weight(T::DbWeight::get().reads_writes(1, 1))]
         pub fn end_game(origin: T::RuntimeOrigin, game_id: GameId) -> DispatchResult {
             let caller = ensure_signed(origin)?;

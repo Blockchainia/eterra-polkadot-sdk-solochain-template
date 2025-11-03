@@ -59,6 +59,7 @@ impl pallet_eterra_game_authority::Config for Test {
     type AdminOrigin = EnsureRoot<AccountId>;
     type MaxExpirationsPerBlock = frame_support::traits::ConstU32<256>;
     type MaxRoundBlocks = frame_support::traits::ConstU64<30>;
+    type MaxBatchAdd = frame_support::traits::ConstU32<32>;
 }
 
 // Build a mock runtime for tests.
